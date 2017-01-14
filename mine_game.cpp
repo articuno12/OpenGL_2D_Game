@@ -47,8 +47,6 @@ COLOR cratebrown2 = {102/255.0,68/255.0,0/255.0};
 COLOR skyblue2 = {113/255.0,185/255.0,209/255.0};
 COLOR skyblue1 = {123/255.0,201/255.0,227/255.0};
 COLOR skyblue = {132/255.0,217/255.0,245/255.0};
-COLOR cloudwhite = {229/255.0,255/255.0,255/255.0};
-COLOR cloudwhite1 = {204/255.0,255/255.0,255/255.0};
 COLOR lightpink = {255/255.0,122/255.0,173/255.0};
 COLOR darkpink = {255/255.0,51/255.0,119/255.0};
 COLOR white = {255/255.0,255/255.0,255/255.0};
@@ -59,12 +57,11 @@ struct game_object
   string object_color;//red,black,green
   VAO* object;
   float gravity;
-  glm::vec3 center,speed,change;
+  glm::vec3 center,speed,change,rotation_center,angle;
   COLOR color;
-  bool ispresent;
-  bool direction; // left or right.0 for left and 1 for right
-  float angle; // current angle
+  bool ispresent,is_rotate;
   float height,width,radius;
+
 };
 struct GLMatrices {
     glm::mat4 projection;
@@ -83,6 +80,7 @@ int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,z
 int e_left=-400,e_right=400,e_up=400,e_down=-400;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
+bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
@@ -245,6 +243,26 @@ void draw3DObject (struct VAO* vao)
     // Draw the geometry !
     glDrawArrays(vao->PrimitiveMode, 0, vao->NumVertices); // Starting from vertex 0; 3 vertices total -> 1 triangle
 }
+void cursor_enter_callback(GLFWwindow* window, int entered)
+{
+    cout<<"entered"<<" "<<entered<<endl;
+    if (entered) CursorOnScreen = 1 ;
+    else CursorOnScreen = 0 ;
+}
+// Returns the mouse coordinates translated according to our coordinate system
+glm::vec3 GetMouseCoordinates(GLFWwindow* window)
+{
+    double CursorX,CursorY ;
+    glfwGetCursorPos(window, &CursorX, &CursorY) ;
+    return glm::vec3(CursorX+e_left,CursorY+e_down,0) ;
+}
+// find angle from A to B : assuming both are normalized vectors
+float FindAngle(glm::vec3 A,glm::vec3 B)
+{
+    float theta = acos(dot(A,B)) ;
+    if(cross(A,B)[2] > 0 ) theta *= -1 ;
+    return theta ;
+}
 void mousescroll(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (yoffset==-1) {
@@ -294,7 +312,15 @@ void move_canon(int u)
   for(auto &it: r)
   {
     it.center=it.center+glm::vec3(0,u * speed_y_c,0);
+    if(it.is_rotate) it.rotation_center += glm::vec3(0,u * speed_y_c,0) ;
   }
+}
+void RotateCannon(GLFWwindow* window)
+{
+    if(!CursorOnScreen) return ;
+    glm::vec3 Mouse = GetMouseCoordinates(window) ;
+    vector<game_object> &Cannon=all_objects["canon"];
+    for(auto &it:Cannon) if(it.is_rotate) it.angle = normalize(Mouse - it.rotation_center) ;
 }
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -405,11 +431,13 @@ void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int part
           else circle=create3DObject(GL_TRIANGLES, (parts*9)/3, vertex_buffer_data, color_buffer_data, GL_LINE);
           game_object GO={};
           GO.color = color;
+          GO.name=name;
         //  GO.name = name;
           GO.object = circle;
           GO.center=centre;
           GO.radius=radius;
           GO.speed=glm::vec3(0,0,0);
+          if(name=="canon2")GO.is_rotate=1; else GO.is_rotate=0;
           canon_vector.push_back(GO);
 }
 void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float radius1,float radius2)
@@ -418,6 +446,7 @@ void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float ra
   CreateCircle("canon1",colorA,c1,radius1,120,1);
   glm::vec3 c2=centre + glm::vec3(radius2,0,0);
   CreateCircle("canon2",colorB,c2,radius2,120,1);
+  for(auto &it:canon_vector) if(it.name=="canon2") it.rotation_center=c1;
   all_objects["canon"] = canon_vector ;
 }
 void createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
@@ -469,12 +498,20 @@ void draw (GLFWwindow* window)
     //  Don't change unless you are sure!!
     glm::mat4 MVP ;
     glm::mat4 VP = Matrices.projection * Matrices.view;
+    RotateCannon(window);
     for(auto it: all_objects)
     {
 
     for(auto it2: it.s )
     {
-    Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center);
+      Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center);
+      if(it2.is_rotate)
+        {
+            Matrices.model = glm::translate (it2.rotation_center*(float)-1 ) * Matrices.model ;
+            float theta = FindAngle(normalize(it2.center - it2.rotation_center),it2.angle) ;
+            Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
+            Matrices.model = glm::translate (it2.rotation_center) * Matrices.model ;
+        }
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
         draw3DObject(it2.object);
@@ -569,6 +606,7 @@ int main (int argc, char** argv)
     endLabel="";
     endLabel_x=-160;
     GLFWwindow* window = initGLFW(width, height);
+    glfwSetCursorEnterCallback(window, cursor_enter_callback);
     initGL (window, width, height);
 
 

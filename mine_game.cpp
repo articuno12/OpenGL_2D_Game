@@ -290,10 +290,10 @@ void initKeyboard(){
 void move_canon(int u)
 {
   cout<<"called"<<endl;
-  vector<game_object> r=all_objects["canon"];
-  for(auto it: r)
+  vector<game_object> &r=all_objects["canon"];
+  for(auto &it: r)
   {
-    it.speed=glm::vec3(0,u * speed_y_c,0);
+    it.center=it.center+glm::vec3(0,u * speed_y_c,0);
   }
 }
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -474,7 +474,7 @@ void draw (GLFWwindow* window)
 
     for(auto it2: it.s )
     {
-    Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center + it2.speed);
+    Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center);
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
         draw3DObject(it2.object);

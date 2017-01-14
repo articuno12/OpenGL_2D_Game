@@ -77,12 +77,14 @@ double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
 float cur_time,last_update_time,game_start_timer; // Time in second
 int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,zoom_camera,x_change,y_change;
-int e_left=-400,e_right=400,e_up=400,e_down=-400;
+int e_left=-400,e_right=400,e_up=400,e_down=-400,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-160;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
 bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector;
+vector<game_object> frame;
+float canon_Radius=30;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
     // Create the shaders
@@ -305,14 +307,18 @@ void initKeyboard(){
 }
 
 //function to move cannonaim
-void move_canon(int u)
+void move_canon(int u,float radius)
 {
   cout<<"called"<<endl;
   vector<game_object> &r=all_objects["canon"];
   for(auto &it: r)
   {
-    it.center=it.center+glm::vec3(0,u * speed_y_c,0);
+    glm::vec3 temp=it.center+glm::vec3(0,u * speed_y_c,0);
+    if((temp[1]+radius)<=game_e_up && (temp[1]+radius)>=-1*game_e_down){
+    it.center=temp;
     if(it.is_rotate) it.rotation_center += glm::vec3(0,u * speed_y_c,0) ;
+  }
+
   }
 }
 void RotateCannon(GLFWwindow* window)
@@ -328,10 +334,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
   if (action == GLFW_RELEASE) {
       switch (key) {
           case GLFW_KEY_UP:
-              move_canon(1);
+              move_canon(1,canon_Radius);
               break;
           case GLFW_KEY_DOWN:
-              move_canon(-1);
+              move_canon(-1,canon_Radius);
               break;
 
       }
@@ -349,10 +355,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
   {
     switch (key) {
         case GLFW_KEY_UP:
-            move_canon(1);
+            move_canon(1,canon_Radius);
             break;
         case GLFW_KEY_DOWN:
-            move_canon(-1);
+            move_canon(-1,canon_Radius);
             break;
 
     }
@@ -437,6 +443,7 @@ void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int part
           GO.center=centre;
           GO.radius=radius;
           GO.speed=glm::vec3(0,0,0);
+          GO.ispresent=1;
           if(name=="canon2")GO.is_rotate=1; else GO.is_rotate=0;
           canon_vector.push_back(GO);
 }
@@ -449,7 +456,7 @@ void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float ra
   for(auto &it:canon_vector) if(it.name=="canon2") it.rotation_center=c1;
   all_objects["canon"] = canon_vector ;
 }
-void createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
+VAO* createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
 {
     // GL3 accepts only Triangles. Quads are not supported
     float w=width/2,h=height/2;
@@ -475,15 +482,21 @@ void createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COL
 
     // create3DObject creates and returns a handle to a VAO that can be used later
     VAO *rectangle = create3DObject(GL_TRIANGLES, 6, vertex_buffer_data, color_buffer_data, GL_FILL);
-    game_object GO={};
-    GO.color = colorA;
-    GO.name = name;
-    GO.object = rectangle;
-    GO.center=centre;
-    GO.height=height;
-    GO.width=width;
-    GO.speed=glm::vec3(0,0,0);
-    //r.push_back(GO);
+  return rectangle;
+}
+void set_frame(COLOR color,float top,float bottom,float width)
+{
+  game_object FM={};
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_up-bottom/2,0),width,2*e_right,"frame");
+  FM.name="frame1";
+  FM.is_rotate=0;
+  FM.ispresent=1;
+  FM.center=glm::vec3(0,e_up-bottom/2,0);
+  frame.push_back(FM);
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_down+top/2,0),width,2*e_right,"frame");
+  FM.center=glm::vec3(0,e_down+top/2,0);
+  frame.push_back(FM);
+  all_objects["frame"]=frame;
 }
 void draw (GLFWwindow* window)
 {
@@ -504,6 +517,8 @@ void draw (GLFWwindow* window)
 
     for(auto it2: it.s )
     {
+      if(it2.ispresent)
+      {
       Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center);
       if(it2.is_rotate)
         {
@@ -516,6 +531,7 @@ void draw (GLFWwindow* window)
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
         draw3DObject(it2.object);
       }
+    }
     }
 }
 
@@ -572,7 +588,8 @@ void initGL (GLFWwindow* window, int width, int height)
   //creating objects
   //createRectangle("cannonpower1",cratebrown2,cratebrown2,cratebrown2,cratebrown2,glm::vec3(-3,0,0),1,2,"background");
   //createRectangle("cannonpower1",darkbrown,darkbrown,darkbrown,darkbrown,glm::vec3(-1.6,0,0),0.2,0.8,"background");
-  createcanon("canon",black,brown3,glm::vec3(e_left+50,0,0),25,10);
+  createcanon("canon",black,brown3,glm::vec3(e_left+50,0,0),canon_Radius,10);
+  set_frame(black,160,80,5);
   // Create and compile our GLSL program from the shaders
   programID = LoadShaders( "Sample_GL.vert", "Sample_GL.frag" );
   // Get a handle for our "MVP" uniform

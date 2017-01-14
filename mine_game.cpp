@@ -80,7 +80,11 @@ double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
 float cur_time,last_update_time,game_start_timer; // Time in second
 int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,zoom_camera,x_change,y_change;
-vector<game_object> r; //temp
+int e_left=-400,e_right=400,e_up=400,e_down=-400;
+float speed_x_c=(float)(e_right-e_left)/50;
+float speed_y_c=(float)(e_up-e_down)/50;
+map<string,vector<game_object> > all_objects;
+vector<game_object> canon_vector;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
     // Create the shaders
@@ -280,11 +284,55 @@ void check_pan(){
 
 void initKeyboard(){
 
-
 }
 
+//function to move cannonaim
+void move_canon(int u)
+{
+  cout<<"called"<<endl;
+  vector<game_object> r=all_objects["canon"];
+  for(auto it: r)
+  {
+    it.speed=glm::vec3(0,u * speed_y_c,0);
+  }
+}
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
-{}
+{
+  cout<<"pressed key"<<" "<<key<<endl;
+  if (action == GLFW_RELEASE) {
+      switch (key) {
+          case GLFW_KEY_UP:
+              move_canon(1);
+              break;
+          case GLFW_KEY_DOWN:
+              move_canon(-1);
+              break;
+
+      }
+  }
+  else if (action == GLFW_PRESS) {
+      switch (key) {
+          case GLFW_KEY_ESCAPE:
+              quit(window);
+              break;
+          default:
+              break;
+      }
+  }
+  else if(action ==GLFW_REPEAT)
+  {
+    switch (key) {
+        case GLFW_KEY_UP:
+            move_canon(1);
+            break;
+        case GLFW_KEY_DOWN:
+            move_canon(-1);
+            break;
+
+    }
+  }
+}
+
 /* Executed for character input (like in text boxes) */
 void keyboardChar(GLFWwindow* window, unsigned int key)
 {
@@ -361,10 +409,16 @@ void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int part
           GO.object = circle;
           GO.center=centre;
           GO.radius=radius;
-          //GO.height=height;
-          //GO.width=width;
           GO.speed=glm::vec3(0,0,0);
-          r.push_back(GO);
+          canon_vector.push_back(GO);
+}
+void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float radius1,float radius2)
+{
+  glm::vec3 c1=centre + glm::vec3(-1*radius1,0,0);
+  CreateCircle("canon1",colorA,c1,radius1,120,1);
+  glm::vec3 c2=centre + glm::vec3(radius2,0,0);
+  CreateCircle("canon2",colorB,c2,radius2,120,1);
+  all_objects["canon"] = canon_vector ;
 }
 void createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
 {
@@ -400,12 +454,12 @@ void createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COL
     GO.height=height;
     GO.width=width;
     GO.speed=glm::vec3(0,0,0);
-    r.push_back(GO);
+    //r.push_back(GO);
 }
 void draw (GLFWwindow* window)
 {
     //game_timer=(int)(90-(glfwGetTime()-game_start_timer));
-    Matrices.projection = glm::ortho((float)-4,(float) 4, (float)-4, (float) 4, 0.1f, 500.0f);
+    Matrices.projection = glm::ortho((float)e_left,(float) e_right, (float)e_down, (float) e_up, 0.1f, 500.0f);
     // clear the color and depth in the frame buffer
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram (programID);
@@ -415,14 +469,19 @@ void draw (GLFWwindow* window)
     //  Don't change unless you are sure!!
     glm::mat4 MVP ;
     glm::mat4 VP = Matrices.projection * Matrices.view;
-    for(auto it: r)
+    for(auto it: all_objects)
     {
-    Matrices.model = glm::mat4(1.0f) * glm::translate (it.center);
+
+    for(auto it2: it.s )
+    {
+    Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center + it2.speed);
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
-        draw3DObject(it.object);
+        draw3DObject(it2.object);
       }
+    }
 }
+
 
 
 GLFWwindow* initGLFW (int width, int height)
@@ -476,8 +535,7 @@ void initGL (GLFWwindow* window, int width, int height)
   //creating objects
   //createRectangle("cannonpower1",cratebrown2,cratebrown2,cratebrown2,cratebrown2,glm::vec3(-3,0,0),1,2,"background");
   //createRectangle("cannonpower1",darkbrown,darkbrown,darkbrown,darkbrown,glm::vec3(-1.6,0,0),0.2,0.8,"background");
-  CreateCircle("cannon",darkgreen,glm::vec3(-3.7,0,0),0.4,120,1);
-  CreateCircle("cannon",lightgreen,glm::vec3(-3.1,0,0),0.2,120,1);
+  createcanon("canon",black,brown3,glm::vec3(e_left+50,0,0),25,10);
   // Create and compile our GLSL program from the shaders
   programID = LoadShaders( "Sample_GL.vert", "Sample_GL.frag" );
   // Get a handle for our "MVP" uniform

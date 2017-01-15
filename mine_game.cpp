@@ -251,7 +251,7 @@ void draw3DObject (struct VAO* vao)
 }
 void cursor_enter_callback(GLFWwindow* window, int entered)
 {
-    cout<<"entered"<<" "<<entered<<endl;
+    //cout<<"entered"<<" "<<entered<<endl;
     if (entered) CursorOnScreen = 1 ;
     else CursorOnScreen = 0 ;
 }
@@ -303,7 +303,7 @@ void mousescroll(GLFWwindow* window, double xoffset, double yoffset)
 
 //Ensure the panning does not go out of the map
 void check_pan(){
-    cout<<"Unwanted function called"<<endl;
+    //cout<<"Unwanted function called"<<endl;
     if(x_change-400.0f/zoom_camera<-400)
         x_change=-400+400.0f/zoom_camera;
     else if(x_change+400.0f/zoom_camera>400)
@@ -321,7 +321,7 @@ void initKeyboard(){
 //function to move cannonaim
 void move_canon(int u,float radius)
 {
-  cout<<"Move cannon called"<<endl;
+  //cout<<"Move cannon called"<<endl;
   vector<game_object> &r=all_objects["canon"];
   for(auto &it: r)
   {
@@ -347,7 +347,7 @@ void RotateCannon(GLFWwindow* window)
 
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-  cout<<"pressed key"<<" "<<key<<endl;
+  //cout<<"pressed key"<<" "<<key<<endl;
   if (action == GLFW_RELEASE) {
       switch (key) {
           case GLFW_KEY_UP:
@@ -482,10 +482,7 @@ void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float ra
   CreateCircle("canon2",colorB,c2,radius2,120,1);
   for(auto &it:canon_vector) if(it.name=="canon2") it.rotation_center=c1;
   all_objects["canon"] = canon_vector ;
-  cout<<"Creating canon"<<endl ;
-  cout<<"Center1 " ; FN(i,3) cout<<canon_vector[0].center[i]<<" " ; cout<<endl ;
-  cout<<"Center2 " ; FN(i,3) cout<<canon_vector[1].center[i]<<" " ; cout<<endl ;
-  cout<<"Cr " ; FN(i,3) cout<<canon_vector[1].rotation_center[i]<<" " ; cout<<endl ;
+
 }
 VAO* createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
 {
@@ -541,6 +538,7 @@ void create_mirror(glm::vec3 center1,glm::vec3 center2)
   mirrors.push_back(m);
   m.height=mirror_height;
   m.width=mirror_width;
+  m.angle= normalize(glm::vec3(1,1,0));
   m.rotation_center = m.center=center2;
   m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
   m.height=mirror_width;m.width=mirror_height;
@@ -553,7 +551,7 @@ void Laser()
   laser_count++;
   vector<game_object> c=all_objects["canon"];
   game_object tmp;
-  tmp.width=40; tmp.height=3;
+  tmp.width=30; tmp.height=3;
   tmp.is_rotate = true ;
   tmp.angle=c[1].angle;
   tmp.speed=tmp.angle * speed_laser;
@@ -643,6 +641,30 @@ bool checkCollision(game_object x,game_object y)
   }
   return false;
 }
+void reflect(game_object &a,game_object &b,float speed)
+{
+  cout<<"reflect"<<endl;
+  glm::vec3 t1,t2,t3;
+  t1=cross(a.center -b.center,a.angle);
+  t2=cross(b.angle,a.angle);
+  float t=t1.length()/t2.length();
+  float q=dot(t1,t2);
+  if(q<0) t=t*(float)-1;
+  t3=b.center+b.angle*(float)t;
+
+  t2=cross(b.angle,glm::vec3(0,0,1));t2=normalize(t2);
+  if(dot(t2,a.center - b.center) < 0) t2 = t2*(float)-1 ;
+
+  t1=a.center-t3;
+  q=abs(dot(t1,t2)); t=dot(b.angle,t1);
+  a.center=t2*q+b.angle*t+t3;
+  t1=a.angle+t3;
+  q=abs(dot(t1,t2)); t=dot(b.angle,t1);
+  speed=a.speed.length()/a.angle.length();
+  a.angle=t2*q+b.angle*t-t3;
+  a.angle = normalize(a.angle) ;
+  a.speed=a.angle*speed;
+}
 void detectCollisions(void)
 {
   for(auto it1:lasers)
@@ -662,11 +684,18 @@ void detectCollisions(void)
   kill_laser.clear() ;
 
   // Collisions with mirror
-  for(auto it1:lasers)
+  for(auto &it1:lasers)
   {
-    for(auto it2:all_objects["mirrors"])
+    for(auto &it2:all_objects["mirrors"])
     {
-      if(checkCollision(it1.s,it2)==true) cout<<"collis"<<endl;
+      if(checkCollision(it1.s,it2)==true) reflect(it1.s,it2,speed_laser);
+    }
+  }
+  for(auto &it1:blocks)
+  {
+    for(auto &it2:all_objects["mirrors"])
+    {
+      if(checkCollision(it1.s,it2)==true) reflect(it1.s,it2,speed_y_c/20);
     }
   }
 }

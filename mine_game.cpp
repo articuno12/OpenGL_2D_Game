@@ -75,15 +75,19 @@ GLuint programID;
 double mouse_pos_x, mouse_pos_y;
 double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
-float cur_time,last_update_time,game_start_timer; // Time in second
+float game_start_timer; // Time in second
 int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,zoom_camera,x_change,y_change;
 int e_left=-400,e_right=400,e_up=400,e_down=-400,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-160;
+int laser_count=0;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
+float speed_laser=(speed_y_c+speed_x_c)/5;
 bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector;
 vector<game_object> frame;
+vector<int>kill_laser;
+map<int,game_object>lasers,blocks;
 float canon_Radius=30;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
@@ -265,6 +269,13 @@ float FindAngle(glm::vec3 A,glm::vec3 B)
     if(cross(A,B)[2] > 0 ) theta *= -1 ;
     return theta ;
 }
+glm::vec3 FindCurrentDirection(glm::vec3 A,glm::vec3 B)
+{
+    glm::vec3 C = A-B ;
+    if(C == glm::vec3(0,0,0)) return glm::vec3(1,0,0) ;
+    return normalize(C) ;
+}
+
 void mousescroll(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (yoffset==-1) {
@@ -309,7 +320,7 @@ void initKeyboard(){
 //function to move cannonaim
 void move_canon(int u,float radius)
 {
-  cout<<"called"<<endl;
+  //cout<<"called"<<endl;
   vector<game_object> &r=all_objects["canon"];
   for(auto &it: r)
   {
@@ -390,11 +401,22 @@ void mouse_click(){
 void mouse_release(GLFWwindow* window, int button){
 
 }
-
+void Laser();
 /* Executed when a mouse button is pressed/released */
 void mouseButton (GLFWwindow* window, int button, int action, int mods)
 {
-
+  switch (button)
+  {
+    case GLFW_MOUSE_BUTTON_LEFT:
+    if (action == GLFW_RELEASE)
+    Laser() ;
+      break;
+      case GLFW_MOUSE_BUTTON_RIGHT:
+      if (action == GLFW_RELEASE) {                 }
+      break;
+      default:
+      break;
+    }
 }
 void reshapeWindow (GLFWwindow* window, int width, int height)
 {
@@ -498,6 +520,37 @@ void set_frame(COLOR color,float top,float bottom,float width)
   frame.push_back(FM);
   all_objects["frame"]=frame;
 }
+void Laser()
+{
+  cout<<"laser"<<endl;
+  laser_count++;
+  vector<game_object> c=all_objects["canon"];
+  game_object tmp;
+  tmp.width=16;tmp.height=4;
+  tmp.is_rotate = true ;
+  tmp.angle=c[1].angle;
+  tmp.speed=tmp.angle * speed_laser;
+  tmp.center = c[0].center + c[1].angle*(float)(c[0].radius + c[1].radius + tmp.width) ;
+  tmp.rotation_center = tmp.center ;
+  tmp.object = createRectangle("laser",red,red,red,red,tmp.center,tmp.width,tmp.height,"laser") ;
+  lasers[laser_count]=tmp;
+
+}
+void move_Laser()
+{
+  cout<<"movelaser"<<endl;
+  for(auto &it: lasers)
+  {
+    it.s.center = it.s.rotation_center = it.s.center + it.s.speed;
+    glm::vec3 n = it.s.center + it.s.angle*it.s.width ;
+    if(n[1]<=game_e_down || n[1]>=-1*game_e_up || n[0]<=e_left||n[0]>=e_right) kill_laser.push_back(it.f);
+  }
+  for(auto it:kill_laser)
+  {
+    lasers.erase(it);
+  }
+}
+double last_update_time = glfwGetTime(), current_time;
 void draw (GLFWwindow* window)
 {
     //game_timer=(int)(90-(glfwGetTime()-game_start_timer));
@@ -511,6 +564,10 @@ void draw (GLFWwindow* window)
     //  Don't change unless you are sure!!
     glm::mat4 MVP ;
     glm::mat4 VP = Matrices.projection * Matrices.view;
+    //if(current_time - last_update_time >=0.01)
+    //{
+      //move_Laser() ;
+    //}
     RotateCannon(window);
     for(auto it: all_objects)
     {
@@ -527,11 +584,27 @@ void draw (GLFWwindow* window)
             Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
             Matrices.model = glm::translate (it2.rotation_center) * Matrices.model ;
         }
+
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
         draw3DObject(it2.object);
       }
     }
+    }
+    for(auto it2:lasers)
+    {
+      Matrices.model = glm::mat4(1.0f) * glm::translate (it2.s.center);
+      if(it2.s.is_rotate)
+        {
+            Matrices.model = glm::translate (it2.s.rotation_center*(float)-1 ) * Matrices.model ;
+            float theta = FindAngle(normalize(it2.s.center - it2.s.rotation_center),it2.s.angle) ;
+            Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
+            Matrices.model = glm::translate (it2.s.rotation_center) * Matrices.model ;
+        }
+
+        MVP = VP * Matrices.model; // MVP = p * V * M
+        glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
+        draw3DObject(it2.s.object);
     }
 }
 
@@ -628,7 +701,6 @@ int main (int argc, char** argv)
 
 
 
-    double last_update_time = glfwGetTime(), current_time;
 
     glfwGetCursorPos(window, &mouse_pos_x, &mouse_pos_y);
 
@@ -637,10 +709,10 @@ int main (int argc, char** argv)
     /* Draw in loop */
     while (!glfwWindowShouldClose(window)) {
 
-        cur_time = glfwGetTime(); // Time in seconds
+        current_time = glfwGetTime(); // Time in seconds
         // OpenGL Draw commands
         draw(window);
-        old_time=cur_time;
+        old_time=current_time;
 
         // Swap Frame Buffer in double buffering
         glfwSwapBuffers(window);

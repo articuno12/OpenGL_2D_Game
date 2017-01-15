@@ -541,11 +541,12 @@ void Laser()
   laser_count++;
   vector<game_object> c=all_objects["canon"];
   game_object tmp;
-  tmp.width=40;tmp.height=3;
+  tmp.width=40; tmp.height=3;
   tmp.is_rotate = true ;
   tmp.angle=c[1].angle;
   tmp.speed=tmp.angle * speed_laser;
-  tmp.center = c[1].angle*(float)(c[0].radius + tmp.width/2) ;
+  //cout<<"angle"<<c[1].angle[0]<<c[1].angle[1]<<endl;
+  tmp.center = c[0].center - c[1].angle*(float)(c[0].radius+ 2*c[1].radius+ tmp.width/2) ;
   tmp.rotation_center = tmp.center ;
   tmp.object = createRectangle("laser",red,red,red,red,tmp.center,tmp.height,tmp.width,"laser") ;
   lasers[laser_count]=tmp;
@@ -676,7 +677,7 @@ void initGL (GLFWwindow* window, int width, int height)
   //creating objects
   //createRectangle("cannonpower1",cratebrown2,cratebrown2,cratebrown2,cratebrown2,glm::vec3(-3,0,0),1,2,"background");
   //createRectangle("cannonpower1",darkbrown,darkbrown,darkbrown,darkbrown,glm::vec3(-1.6,0,0),0.2,0.8,"background");
-  createcanon("canon",black,brown3,glm::vec3(e_left+50,0,0),canon_Radius,10);
+  createcanon("canon",black,brown3,glm::vec3(e_left+2*canon_Radius,0,0),canon_Radius,10);
   set_frame(black,160,80,5);
   create_mirror(glm::vec3(0,0,0),glm::vec3(80,80,0));
   // Create and compile our GLSL program from the shaders

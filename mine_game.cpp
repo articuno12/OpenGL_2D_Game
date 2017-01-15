@@ -77,7 +77,7 @@ double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
 float game_start_timer; // Time in second
 int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,zoom_camera,x_change,y_change;
-int e_left=-400,e_right=400,e_up=400,e_down=-400,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-160;
+int e_left=-400,e_right=400,e_up=300,e_down=-300,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-160;
 int laser_count=0;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
@@ -85,10 +85,10 @@ float speed_laser=(speed_y_c+speed_x_c)/5;
 bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector;
-vector<game_object> frame;
+vector<game_object> frame,mirrors;
 vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
-float canon_Radius=30;
+float canon_Radius=30,mirror_width=40,mirror_height=10;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
     // Create the shaders
@@ -520,19 +520,34 @@ void set_frame(COLOR color,float top,float bottom,float width)
   frame.push_back(FM);
   all_objects["frame"]=frame;
 }
+void create_mirror(glm::vec3 center1,glm::vec3 center2)
+{
+  game_object m;
+  m.height=mirror_height;
+  m.width=mirror_width;
+  m.center=center1;
+  m.angle= normalize(glm::vec3(-1,1,0)) ;
+  m.object=createRectangle("mirror",white,white,white,white,center1,m.width,m.height,"m");
+  mirrors.push_back(m);
+  m.center=center2;
+  m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
+  m.height=mirror_width;m.width=mirror_height;
+  mirrors.push_back(m);
+  all_objects["mirrors"]=mirrors;
+}
 void Laser()
 {
   cout<<"laser"<<endl;
   laser_count++;
   vector<game_object> c=all_objects["canon"];
   game_object tmp;
-  tmp.width=16;tmp.height=4;
+  tmp.width=40;tmp.height=3;
   tmp.is_rotate = true ;
   tmp.angle=c[1].angle;
   tmp.speed=tmp.angle * speed_laser;
-  tmp.center = c[0].center + c[1].angle*(float)(c[0].radius + c[1].radius + tmp.width) ;
+  tmp.center = c[1].angle*(float)(c[0].radius + tmp.width/2) ;
   tmp.rotation_center = tmp.center ;
-  tmp.object = createRectangle("laser",red,red,red,red,tmp.center,tmp.width,tmp.height,"laser") ;
+  tmp.object = createRectangle("laser",red,red,red,red,tmp.center,tmp.height,tmp.width,"laser") ;
   lasers[laser_count]=tmp;
 
 }
@@ -542,7 +557,7 @@ void move_Laser()
   for(auto &it: lasers)
   {
     it.s.center = it.s.rotation_center = it.s.center + it.s.speed;
-    glm::vec3 n = it.s.center + it.s.angle*it.s.width ;
+    glm::vec3 n = it.s.center + it.s.angle*it.s.height ;
     if(n[1]<=game_e_down || n[1]>=-1*game_e_up || n[0]<=e_left||n[0]>=e_right) kill_laser.push_back(it.f);
   }
   for(auto it:kill_laser)
@@ -593,18 +608,18 @@ void draw (GLFWwindow* window)
     }
     for(auto it2:lasers)
     {
-      Matrices.model = glm::mat4(1.0f) * glm::translate (it2.s.center);
-      if(it2.s.is_rotate)
+        auto it = it2.second ;
+        Matrices.model = glm::translate (it.center);
+        if(it.is_rotate)
         {
-            Matrices.model = glm::translate (it2.s.rotation_center*(float)-1 ) * Matrices.model ;
-            float theta = FindAngle(normalize(it2.s.center - it2.s.rotation_center),it2.s.angle) ;
+            Matrices.model = glm::translate (it.rotation_center*(float)-1 ) * Matrices.model ;
+            float theta = FindAngle(FindCurrentDirection(it.center,it.rotation_center),it.angle) ;
             Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
-            Matrices.model = glm::translate (it2.s.rotation_center) * Matrices.model ;
+            Matrices.model = glm::translate (it.rotation_center) * Matrices.model ;
         }
-
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
-        draw3DObject(it2.s.object);
+        draw3DObject(it.object);
     }
 }
 
@@ -663,6 +678,7 @@ void initGL (GLFWwindow* window, int width, int height)
   //createRectangle("cannonpower1",darkbrown,darkbrown,darkbrown,darkbrown,glm::vec3(-1.6,0,0),0.2,0.8,"background");
   createcanon("canon",black,brown3,glm::vec3(e_left+50,0,0),canon_Radius,10);
   set_frame(black,160,80,5);
+  create_mirror(glm::vec3(0,0,0),glm::vec3(80,80,0));
   // Create and compile our GLSL program from the shaders
   programID = LoadShaders( "Sample_GL.vert", "Sample_GL.frag" );
   // Get a handle for our "MVP" uniform

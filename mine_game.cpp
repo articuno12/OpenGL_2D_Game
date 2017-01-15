@@ -628,23 +628,45 @@ bool checkCollision(game_object x,game_object y)
   glm::vec3 p=cross(x.angle,glm::vec3(0,0,1));
   p=normalize(p);
   glm::vec3 ver[4];
-  ver[2]=x.center+x.width/2*x.angle-x.height/2*p;
-  ver[0]=x.center+x.width/2*x.angle+x.height/2*p;
-  ver[1]=x.center-x.width/2*x.angle+x.height/2*p;
-  ver[3]=x.center-x.width/2*x.angle-x.height/2*p;
+  ver[2]=x.center+x.angle*(float)(x.width/2)-p*(float)(x.height/2);
+  ver[0]=x.center+x.angle*(float)(x.width/2)+p*(float)(x.height/2);
+  ver[1]=x.center-x.angle*(float)(x.width/2)+p*(float)(x.height/2);
+  ver[3]=x.center-x.angle*(float)(x.width/2)-p*(float)(x.height/2);
   p=cross(y.angle,glm::vec3(0,0,1));
   p=normalize(p);
   FN(i,4)
   {
 
-    float d1=abs(dot(ver[i],p));
-    float d2=abs(dot(ver[i],y.angle));
-    if(d1>(y.height/2)||d2>(y.width/2)) return false; else return true;
+    float d1=abs(dot(ver[i]-y.center,p));
+    float d2=abs(dot(ver[i]-y.center,y.angle));
+    if(d1>(y.height/2)||d2>(y.width/2)) ; else return true;
   }
+  return false;
 }
 void detectCollisions(void)
 {
-
+  for(auto it1:lasers)
+  {
+    for(auto it2:blocks)
+    {
+      bool c=checkCollision(it2.s,it1.s);
+      if(c==true) cout<<"c is true"<<endl,kill_blocks.push_back(it2.f),kill_laser.push_back(it1.f);
+    }
+  }
+  for(auto it:kill_blocks) blocks.erase(it);
+  kill_blocks.clear();
+  for(auto it:kill_laser)
+  {
+    lasers.erase(it);
+  }
+  kill_laser.clear() ;
+  for(auto it1:lasers)
+  {
+    for(auto it2:all_objects["mirrors"])
+    {
+      if(checkCollision(it2,it1.s)==true) cout<<"collis"<<endl;
+    }
+  }
 }
 double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
 void draw (GLFWwindow* window)
@@ -661,11 +683,12 @@ void draw (GLFWwindow* window)
     glm::mat4 VP = Matrices.projection * Matrices.view;
     if(current_time - last_update_time >=0.2)
     {
-        cout<<"moving"<<endl ;
+        //cout<<"moving"<<endl ;
         last_update_time = current_time ;
         move_Laser() ;
         moveBlocks();
     }
+    detectCollisions();
     if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}
     RotateCannon(window);
     for(auto it: all_objects)

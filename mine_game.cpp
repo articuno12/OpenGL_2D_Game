@@ -33,7 +33,7 @@ COLOR gold = {218.0/255.0,165.0/255.0,32.0/255.0};
 COLOR coingold = {255.0/255.0,223.0/255.0,0.0/255.0};
 COLOR red = {255.0/255.0,51.0/255.0,51.0/255.0};
 COLOR lightgreen = {57/255.0,230/255.0,0/255.0};
-COLOR darkgreen = {51/255.0,102/255.0,0/255.0};
+COLOR green = {51/255.0,102/255.0,0/255.0};
 COLOR black = {30/255.0,30/255.0,21/255.0};
 COLOR blue = {0,0,1};
 COLOR darkbrown = {46/255.0,46/255.0,31/255.0};
@@ -53,16 +53,14 @@ COLOR white = {255/255.0,255/255.0,255/255.0};
 COLOR score = {117/255.0,78/255.0,40/255.0};
 struct game_object
 {
-  string name;//name of object
-  string object_color;//red,black,green
+  string name;//name of object//red,black,green
   VAO* object;
-  float gravity;
-  glm::vec3 center,speed,change,rotation_center,angle;
+  glm::vec3 center,speed,change,rotation_center,angle,gravity;
   COLOR color;
-  bool ispresent,is_rotate;
+  bool is_rotate;
   float height,width,radius;
-
 };
+
 struct GLMatrices {
     glm::mat4 projection;
     glm::mat4 model;
@@ -77,18 +75,20 @@ double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
 float game_start_timer; // Time in second
 int scoreLabel_x,scoreLabel_y,endLabel_x,endLabel_y,timer_x,timer_y,game_timer,zoom_camera,x_change,y_change;
-int e_left=-400,e_right=400,e_up=300,e_down=-300,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-160;
+int e_left=-400,e_right=400,e_up=300,e_down=-300,game_e_left=e_left+71,game_e_up=e_up-80,game_e_down=e_up-80;
 int laser_count=0;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
-float speed_laser=(speed_y_c+speed_x_c)/5;
+float speed_laser=(speed_y_c+speed_x_c)*3/2;
 bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
-vector<game_object> canon_vector;
+vector<game_object> canon_vector ;
 vector<game_object> frame,mirrors;
 vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
-float canon_Radius=30,mirror_width=40,mirror_height=10;
+float canon_Radius=30,mirror_width=40,mirror_height=5;
+int limit=2*e_right;
+float block_width=10,block_height=10;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
     // Create the shaders
@@ -266,7 +266,7 @@ glm::vec3 GetMouseCoordinates(GLFWwindow* window)
 float FindAngle(glm::vec3 A,glm::vec3 B)
 {
     float theta = acos(dot(A,B)) ;
-    if(cross(A,B)[2] > 0 ) theta *= -1 ;
+    if(cross(A,B)[2] <= 0 ) theta *= -1 ;
     return theta ;
 }
 glm::vec3 FindCurrentDirection(glm::vec3 A,glm::vec3 B)
@@ -303,6 +303,7 @@ void mousescroll(GLFWwindow* window, double xoffset, double yoffset)
 
 //Ensure the panning does not go out of the map
 void check_pan(){
+    cout<<"Unwanted function called"<<endl;
     if(x_change-400.0f/zoom_camera<-400)
         x_change=-400+400.0f/zoom_camera;
     else if(x_change+400.0f/zoom_camera>400)
@@ -320,7 +321,7 @@ void initKeyboard(){
 //function to move cannonaim
 void move_canon(int u,float radius)
 {
-  //cout<<"called"<<endl;
+  cout<<"Move cannon called"<<endl;
   vector<game_object> &r=all_objects["canon"];
   for(auto &it: r)
   {
@@ -337,18 +338,23 @@ void RotateCannon(GLFWwindow* window)
     if(!CursorOnScreen) return ;
     glm::vec3 Mouse = GetMouseCoordinates(window) ;
     vector<game_object> &Cannon=all_objects["canon"];
-    for(auto &it:Cannon) if(it.is_rotate) it.angle = normalize(Mouse - it.rotation_center) ;
+    for(auto &it:Cannon) if(it.is_rotate)
+    {
+        // cout<<"int rotate cannon cr is " ; FN(i,3) cout<<it.rotation_center[i]<<" " ; cout<<endl ;
+        it.angle = normalize(Mouse - it.rotation_center) ;
+    }
 }
+
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   cout<<"pressed key"<<" "<<key<<endl;
   if (action == GLFW_RELEASE) {
       switch (key) {
           case GLFW_KEY_UP:
-              move_canon(1,canon_Radius);
+              move_canon(-1,canon_Radius);
               break;
           case GLFW_KEY_DOWN:
-              move_canon(-1,canon_Radius);
+              move_canon(1,canon_Radius);
               break;
 
       }
@@ -366,10 +372,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
   {
     switch (key) {
         case GLFW_KEY_UP:
-            move_canon(1,canon_Radius);
+            move_canon(-1,canon_Radius);
             break;
         case GLFW_KEY_DOWN:
-            move_canon(-1,canon_Radius);
+            move_canon(1,canon_Radius);
             break;
 
     }
@@ -426,7 +432,7 @@ void reshapeWindow (GLFWwindow* window, int width, int height)
     glfwGetFramebufferSize(window, &fbwidth, &fbheight);
     GLfloat fov = 90.0f;
     glViewport (0, 0, (GLsizei) fbwidth, (GLsizei) fbheight);
-    Matrices.projection = glm::ortho(-400.0f/zoom_camera, 400.0f/zoom_camera, -300.0f/zoom_camera, 300.0f/zoom_camera, 0.1f, 500.0f);
+    Matrices.projection = glm::ortho((float)e_left,(float) e_right, (float)e_up, (float) e_down, 0.1f, 500.0f);
 }
 void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int parts,bool fill)
 {
@@ -465,18 +471,21 @@ void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int part
           GO.center=centre;
           GO.radius=radius;
           GO.speed=glm::vec3(0,0,0);
-          GO.ispresent=1;
           if(name=="canon2")GO.is_rotate=1; else GO.is_rotate=0;
           canon_vector.push_back(GO);
 }
 void createcanon(string name,COLOR colorA,COLOR colorB,glm::vec3 centre,float radius1,float radius2)
 {
-  glm::vec3 c1=centre + glm::vec3(-1*radius1,0,0);
+  glm::vec3 c1=centre - glm::vec3(radius1,0,0);
   CreateCircle("canon1",colorA,c1,radius1,120,1);
   glm::vec3 c2=centre + glm::vec3(radius2,0,0);
   CreateCircle("canon2",colorB,c2,radius2,120,1);
   for(auto &it:canon_vector) if(it.name=="canon2") it.rotation_center=c1;
   all_objects["canon"] = canon_vector ;
+  cout<<"Creating canon"<<endl ;
+  cout<<"Center1 " ; FN(i,3) cout<<canon_vector[0].center[i]<<" " ; cout<<endl ;
+  cout<<"Center2 " ; FN(i,3) cout<<canon_vector[1].center[i]<<" " ; cout<<endl ;
+  cout<<"Cr " ; FN(i,3) cout<<canon_vector[1].rotation_center[i]<<" " ; cout<<endl ;
 }
 VAO* createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COLOR colorD, glm::vec3 centre, float height, float width, string component)
 {
@@ -509,13 +518,13 @@ VAO* createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COL
 void set_frame(COLOR color,float top,float bottom,float width)
 {
   game_object FM={};
-  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_up-bottom/2,0),width,2*e_right,"frame");
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_up-top/2,0),width,2*e_right,"frame");
   FM.name="frame1";
   FM.is_rotate=0;
-  FM.ispresent=1;
+  FM.angle=normalize(glm::vec3(1,0,0));
   FM.center=glm::vec3(0,e_up-bottom/2,0);
   frame.push_back(FM);
-  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_down+top/2,0),width,2*e_right,"frame");
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_down+bottom/2,0),width,2*e_right,"frame");
   FM.center=glm::vec3(0,e_down+top/2,0);
   frame.push_back(FM);
   all_objects["frame"]=frame;
@@ -523,12 +532,15 @@ void set_frame(COLOR color,float top,float bottom,float width)
 void create_mirror(glm::vec3 center1,glm::vec3 center2)
 {
   game_object m;
-  m.height=mirror_height;
-  m.width=mirror_width;
+  m.height=mirror_width;
+  m.width=mirror_height;
+  m.is_rotate=true;
   m.center=center1;
   m.angle= normalize(glm::vec3(-1,1,0)) ;
   m.object=createRectangle("mirror",white,white,white,white,center1,m.width,m.height,"m");
   mirrors.push_back(m);
+  m.height=mirror_height;
+  m.width=mirror_width;
   m.center=center2;
   m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
   m.height=mirror_width;m.width=mirror_height;
@@ -537,7 +549,7 @@ void create_mirror(glm::vec3 center1,glm::vec3 center2)
 }
 void Laser()
 {
-  cout<<"laser"<<endl;
+  //cout<<"laser"<<endl;
   laser_count++;
   vector<game_object> c=all_objects["canon"];
   game_object tmp;
@@ -546,7 +558,7 @@ void Laser()
   tmp.angle=c[1].angle;
   tmp.speed=tmp.angle * speed_laser;
   //cout<<"angle"<<c[1].angle[0]<<c[1].angle[1]<<endl;
-  tmp.center = c[0].center - c[1].angle*(float)(c[0].radius+ 2*c[1].radius+ tmp.width/2) ;
+  tmp.center = c[0].center + c[1].angle*(float)(c[0].radius+ 2*c[1].radius+ tmp.width/2) ;
   tmp.rotation_center = tmp.center ;
   tmp.object = createRectangle("laser",red,red,red,red,tmp.center,tmp.height,tmp.width,"laser") ;
   lasers[laser_count]=tmp;
@@ -554,23 +566,90 @@ void Laser()
 }
 void move_Laser()
 {
-  cout<<"movelaser"<<endl;
-  for(auto &it: lasers)
+  //cout<<"movelaser"<<endl;
+  for(auto &it:lasers)
   {
     it.s.center = it.s.rotation_center = it.s.center + it.s.speed;
-    glm::vec3 n = it.s.center + it.s.angle*it.s.height ;
-    if(n[1]<=game_e_down || n[1]>=-1*game_e_up || n[0]<=e_left||n[0]>=e_right) kill_laser.push_back(it.f);
+    glm::vec3 n = it.s.center + it.s.angle*it.s.width ;
+    if(n[1]>=game_e_down || n[1]<=-1*game_e_up || n[0]<=e_left||n[0]>=e_right) kill_laser.push_back(it.f);
   }
   for(auto it:kill_laser)
   {
     lasers.erase(it);
   }
+  kill_laser.clear() ;
 }
-double last_update_time = glfwGetTime(), current_time;
+int randomno(int limit) {return rand()%limit;}
+float block_x_coordinate()
+{
+  float x=e_left+canon_Radius*2+20+2*block_width;
+  return x+(float)randomno(limit);
+}
+int block_no=0;
+void createBlocks()
+{
+  game_object b;
+  block_no++;
+  float y=-1*game_e_up + block_height/2;
+  float x=block_x_coordinate();
+  b.center=glm::vec3(x,y,0);
+  b.is_rotate=0;
+  b.angle=normalize(glm::vec3(0,1,0));
+  b.height=block_height;
+  b.width=block_width;
+  b.speed=glm::vec3(0,speed_y_c/2,0);
+  b.gravity=glm::vec3(0,speed_y_c/200,0);
+  int c=randomno(3);
+  if(c==0) b.color=red;
+  else if(c==1) b.color=green;
+  else b.color=black;
+  b.object=createRectangle("block",b.color,b.color,b.color,b.color,b.center,b.height,b.width,"block");
+  blocks[block_no]=b;
+}
+vector<int> kill_blocks;
+void moveBlocks()
+{
+  game_object temp;
+  for(auto &it:blocks)
+  {
+    temp.center=it.s.center+it.s.speed;
+    if(temp.center[0]<=e_down) kill_blocks.push_back(it.f);
+    else {
+    it.s.center+=it.s.speed;
+    it.s.rotation_center=it.s.center;
+    it.s.speed+=it.s.gravity;
+  }
+  }
+  for(auto it:kill_blocks) blocks.erase(it);
+  kill_blocks.clear();
+}
+bool checkCollision(game_object x,game_object y)
+{
+  glm::vec3 p=cross(x.angle,glm::vec3(0,0,1));
+  p=normalize(p);
+  glm::vec3 ver[4];
+  ver[2]=x.center+x.width/2*x.angle-x.height/2*p;
+  ver[0]=x.center+x.width/2*x.angle+x.height/2*p;
+  ver[1]=x.center-x.width/2*x.angle+x.height/2*p;
+  ver[3]=x.center-x.width/2*x.angle-x.height/2*p;
+  p=cross(y.angle,glm::vec3(0,0,1));
+  p=normalize(p);
+  FN(i,4)
+  {
+
+    float d1=abs(dot(ver[i],p));
+    float d2=abs(dot(ver[i],y.angle));
+    if(d1>(y.height/2)||d2>(y.width/2)) return false; else return true;
+  }
+}
+void detectCollisions(void)
+{
+
+}
+double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
 void draw (GLFWwindow* window)
 {
     //game_timer=(int)(90-(glfwGetTime()-game_start_timer));
-    Matrices.projection = glm::ortho((float)e_left,(float) e_right, (float)e_down, (float) e_up, 0.1f, 500.0f);
     // clear the color and depth in the frame buffer
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram (programID);
@@ -580,23 +659,25 @@ void draw (GLFWwindow* window)
     //  Don't change unless you are sure!!
     glm::mat4 MVP ;
     glm::mat4 VP = Matrices.projection * Matrices.view;
-    //if(current_time - last_update_time >=0.01)
-    //{
-      //move_Laser() ;
-    //}
+    if(current_time - last_update_time >=0.2)
+    {
+        cout<<"moving"<<endl ;
+        last_update_time = current_time ;
+        move_Laser() ;
+        moveBlocks();
+    }
+    if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}
     RotateCannon(window);
     for(auto it: all_objects)
     {
 
     for(auto it2: it.s )
     {
-      if(it2.ispresent)
-      {
       Matrices.model = glm::mat4(1.0f) * glm::translate (it2.center);
       if(it2.is_rotate)
         {
             Matrices.model = glm::translate (it2.rotation_center*(float)-1 ) * Matrices.model ;
-            float theta = FindAngle(normalize(it2.center - it2.rotation_center),it2.angle) ;
+            float theta = FindAngle(FindCurrentDirection(it2.center,it2.rotation_center),it2.angle) ;
             Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
             Matrices.model = glm::translate (it2.rotation_center) * Matrices.model ;
         }
@@ -604,10 +685,24 @@ void draw (GLFWwindow* window)
         MVP = VP * Matrices.model; // MVP = p * V * M
         glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
         draw3DObject(it2.object);
-      }
     }
     }
     for(auto it2:lasers)
+    {
+        auto it = it2.second ;
+        Matrices.model = glm::translate (it.center);
+        if(it.is_rotate)
+        {
+            Matrices.model = glm::translate (it.rotation_center*(float)-1 ) * Matrices.model ;
+            float theta = FindAngle(FindCurrentDirection(it.center,it.rotation_center),it.angle) ;
+            Matrices.model = glm::rotate(theta, glm::vec3(0,0,1)) * Matrices.model ;
+            Matrices.model = glm::translate (it.rotation_center) * Matrices.model ;
+        }
+        MVP = VP * Matrices.model; // MVP = p * V * M
+        glUniformMatrix4fv(Matrices.MatrixID, 1, GL_FALSE, &MVP[0][0]);
+        draw3DObject(it.object);
+    }
+    for(auto it2:blocks)
     {
         auto it = it2.second ;
         Matrices.model = glm::translate (it.center);
@@ -716,7 +811,7 @@ int main (int argc, char** argv)
     glfwSetCursorEnterCallback(window, cursor_enter_callback);
     initGL (window, width, height);
 
-
+    srand(glfwGetTime());
 
 
     glfwGetCursorPos(window, &mouse_pos_x, &mouse_pos_y);
@@ -739,10 +834,10 @@ int main (int argc, char** argv)
 
         // Control based on time (Time based transformation like 5 degrees rotation every 0.5s)
         current_time = glfwGetTime(); // Time in seconds
-        if ((current_time - last_update_time) >= 0.5) { // atleast 0.5s elapsed since last frame
+        // if ((current_time - last_update_time) >= 0.5) { // atleast 0.5s elapsed since last frame
             // do something every 0.5 seconds ..
-            last_update_time = current_time;
-        }
+            // last_update_time = current_time;
+            // }
     }
 
     glfwTerminate();

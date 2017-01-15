@@ -79,7 +79,7 @@ int e_left=-400,e_right=400,e_up=300,e_down=-300,game_e_left=e_left+71,game_e_up
 int laser_count=0;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
-float speed_laser=(speed_y_c+speed_x_c)*3/2;
+float speed_laser=(speed_y_c+speed_x_c)/4;
 bool CursorOnScreen=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector ;
@@ -532,16 +532,16 @@ void set_frame(COLOR color,float top,float bottom,float width)
 void create_mirror(glm::vec3 center1,glm::vec3 center2)
 {
   game_object m;
-  m.height=mirror_width;
-  m.width=mirror_height;
+  m.height=mirror_height;
+  m.width=mirror_width;
   m.is_rotate=true;
-  m.center=center1;
+  m.rotation_center = m.center=center1;
   m.angle= normalize(glm::vec3(-1,1,0)) ;
-  m.object=createRectangle("mirror",white,white,white,white,center1,m.width,m.height,"m");
+  m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
   mirrors.push_back(m);
   m.height=mirror_height;
   m.width=mirror_width;
-  m.center=center2;
+  m.rotation_center = m.center=center2;
   m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
   m.height=mirror_width;m.width=mirror_height;
   mirrors.push_back(m);
@@ -597,8 +597,8 @@ void createBlocks()
   b.angle=normalize(glm::vec3(0,1,0));
   b.height=block_height;
   b.width=block_width;
-  b.speed=glm::vec3(0,speed_y_c/2,0);
-  b.gravity=glm::vec3(0,speed_y_c/200,0);
+  b.speed=glm::vec3(0,speed_y_c/20,0);
+  b.gravity=glm::vec3(0,speed_y_c/300,0);
   int c=randomno(3);
   if(c==0) b.color=red;
   else if(c==1) b.color=green;
@@ -660,11 +660,13 @@ void detectCollisions(void)
     lasers.erase(it);
   }
   kill_laser.clear() ;
+
+  // Collisions with mirror
   for(auto it1:lasers)
   {
     for(auto it2:all_objects["mirrors"])
     {
-      if(checkCollision(it2,it1.s)==true) cout<<"collis"<<endl;
+      if(checkCollision(it1.s,it2)==true) cout<<"collis"<<endl;
     }
   }
 }
@@ -681,7 +683,7 @@ void draw (GLFWwindow* window)
     //  Don't change unless you are sure!!
     glm::mat4 MVP ;
     glm::mat4 VP = Matrices.projection * Matrices.view;
-    if(current_time - last_update_time >=0.2)
+    if(current_time - last_update_time >=0.01)
     {
         //cout<<"moving"<<endl ;
         last_update_time = current_time ;

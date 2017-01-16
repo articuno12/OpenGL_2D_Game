@@ -94,6 +94,7 @@ bool l=0,r=0,m=0,n=0,pause=0; //keys
 bool Right_mouse_on;
 glm::vec3 Saved_mouse;
 double pan_timer=glfwGetTime();
+bool enable_shhot=0;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
 		// Create the shaders
@@ -452,7 +453,9 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 						case GLFW_KEY_P:
 								pause=pause^1;
 								break;
-
+								case GLFW_KEY_T:
+										enable_shhot=enable_shhot^1;
+										break;
 						default:
 								break;
 				}
@@ -531,7 +534,7 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods)
 		{
 				case GLFW_MOUSE_BUTTON_LEFT:
 						if (action == GLFW_RELEASE)
-								Laser() ;
+								if(enable_shhot) Laser() ;
 						break;
 				case GLFW_MOUSE_BUTTON_RIGHT:
 						if (action == GLFW_RELEASE) { right_mouse_clicked=false; }
@@ -905,7 +908,7 @@ void draw(GLFWwindow* window)
 		}
 		detectCollisions();
 		if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}
-	//	RotateCannon(window);
+	if(enable_shhot==1)RotateCannon(window);
 		for(auto it: all_objects)
 		{
 

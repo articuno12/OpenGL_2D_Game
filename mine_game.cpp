@@ -89,7 +89,7 @@ vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
 float canon_Radius=30,mirror_width=40,mirror_height=5;
 int limit=2*e_right;
-float block_width=10,block_height=10,bucket_width=35,bucket_height=70,block_speed_least=speed_y_c/40,block_speed_max=speed_y_c/10;
+float block_width=10,block_height=10,bucket_width=35,bucket_height=70,block_speed_least=speed_y_c/20,block_speed_max=speed_y_c/10;
 bool l=0,r=0,m=0,n=0,pause=0; //keys
 bool Right_mouse_on;
 glm::vec3 Saved_mouse;
@@ -362,7 +362,22 @@ void RotateCannon(GLFWwindow* window)
 }
 void Laser();
 void movebucket(glm::vec3,COLOR,glm::vec3);
-void changespeed(int n){}
+void changespeed(int n)
+{
+	for(auto &it:blocks)
+	{
+		if(n==1) if(it.s.speed.length()/it.s.angle.length() < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
+		else if(n==-1) if(it.s.speed.length()/it.s.angle.length() > block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
+	}
+}
+void RotateCannon_keyboard(bool d)
+{
+	for(auto &it:all_objects["canon"])
+	{
+		if(d==0) it.angle=normalize(it.angle*glm::vec3(1,1,0)); //rotating by 5 degrees
+		if(d==1) it.angle=normalize(it.angle*glm::vec3(1,-1,0)); //rotating by 5 degrees
+	}
+}
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 		//cout<<"pressed key"<<" "<<key<<endl;
@@ -393,16 +408,16 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 								m=0;
 								break;
 						case GLFW_KEY_N:
-								changespeed(-1);
+								changespeed(-1); //decrese speed
 								break;
 						case GLFW_KEY_M:
-								changespeed(1);
+								changespeed(1); //increase speed
 								break;
 						case GLFW_KEY_A:
-								//RotateCannon(win);
+								RotateCannon_keyboard(0); //0 for upwards
 								break;
 						case GLFW_KEY_D:
-								//RotateCannon();
+								RotateCannon_keyboard(1); //1 for downwards
 								break;
 				}
 		}
@@ -843,7 +858,7 @@ void detectCollisions(void)
 				}
 				for(auto &it2:all_objects["buckets"])
 				{
-						if(checkCollision(it1.s,it2)==true)
+						if(checkCollision(it1.s,it2)==true&&checkCollision(all_objects["buckets"][0],all_objects["buckets"][1])==false)
 						{
 								cout<<"b"<<endl;
 								kill_blocks.push_back(it1.f);

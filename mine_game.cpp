@@ -95,6 +95,7 @@ bool Right_mouse_on;
 glm::vec3 Saved_mouse;
 double pan_timer=glfwGetTime();
 bool enable_shhot=0;
+bool canon_selected,redb_selected,greenb_selected,leftmouse,rightmouse;
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
 		// Create the shaders
@@ -527,6 +528,24 @@ void mouse_click(){
 void mouse_release(GLFWwindow* window, int button){
 
 }
+void checkselection(GLFWwindow* window)
+{
+	glm::vec3 m=GetMouseCoordinates(window);
+	for(auto &it:all_objects["canon"])
+	{
+		glm::vec3 r=m-it.center;
+		if(glm::length(r)<=it.radius) canon_selected=1;
+	}
+	for(auto it:all_objects["buckets"])
+	{
+		glm::vec3 p=normalize(cross(glm::vec3(0,0,1),it.center));
+		if(abs(dot(m-it.center,p))<=bucket_height/2 &&abs(dot(m-it.center,p))<=bucket_width/2 )
+		{
+			if(it.color.r==red.r&&it.color.g==red.g&&it.color.b==red.b) redb_selected=1;
+			else greenb_selected=1;
+		}
+	}
+}
 /* Executed when a mouse button is pressed/released */
 void mouseButton (GLFWwindow* window, int button, int action, int mods)
 {
@@ -534,8 +553,13 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods)
 		{
 				case GLFW_MOUSE_BUTTON_LEFT:
 						if (action == GLFW_RELEASE)
+						{
 								if(enable_shhot) Laser() ;
+								leftmouse=canon_selected=redb_selected=greenb_selected=0;
+						}
+						if (action==GLFW_PRESS) leftmouse=1,checkselection(window);
 						break;
+
 				case GLFW_MOUSE_BUTTON_RIGHT:
 						if (action == GLFW_RELEASE) { right_mouse_clicked=false; }
 						if (action == GLFW_PRESS)
@@ -782,6 +806,31 @@ void movebucket(glm::vec3 location,COLOR color,glm::vec3 angle)
 				}
 		}
 }
+void movebucket_mouse(glm::vec3 location,COLOR color)
+{
+	for(auto &it:all_objects["buckets"])
+	{
+		if(it.color.r==color.r &&it.color.g==color.g &&it.color.b==color.b)
+		{
+				glm::vec3 temp=glm::vec3(location[0],it.center[1],0);
+				if((temp[0]+bucket_width/2)<e_right && (temp[0]-bucket_width/2)>e_left)
+						it.center=temp,it.rotation_center=temp;
+		}
+	}
+}
+void movecanon_mouse(glm::vec3 location)
+{
+	vector<game_object> &r=all_objects["canon"];
+	for(auto &it: r)
+	{
+			glm::vec3 temp=glm::vec3(it.center[0],location[1],0);
+			if((temp[1]+canon_Radius)<=game_e_up && (temp[1])>=-1*game_e_down){
+					it.center=temp;
+					if(it.is_rotate) it.rotation_center =it.center ;
+			}
+
+	}
+}
 bool checkCollision(game_object x,game_object y)
 {
 		glm::vec3 p=cross(x.angle,glm::vec3(0,0,1));
@@ -909,6 +958,15 @@ void draw(GLFWwindow* window)
 		detectCollisions();
 		if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}
 	if(enable_shhot==1)RotateCannon(window);
+	glm::vec3 m=GetMouseCoordinates(window);
+	if(canon_selected) {
+		movecanon_mouse(m);
+	}
+	if(redb_selected)
+	{
+			movebucket_mouse(m,red);
+	}
+	if(greenb_selected) movebucket_mouse(m,green);
 		for(auto it: all_objects)
 		{
 

@@ -89,7 +89,7 @@ vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
 float canon_Radius=30,mirror_width=40,mirror_height=5;
 int limit=2*e_right;
-float block_width=10,block_height=10,bucket_width=35,bucket_height=70,block_speed_least=speed_y_c/20,block_speed_max=speed_y_c/10;
+float block_width=10,block_height=10,bucket_width=35,bucket_height=70,block_speed_least=speed_y_c/40,block_speed_max=speed_y_c/5;
 bool l=0,r=0,m=0,n=0,pause=0; //keys
 bool Right_mouse_on;
 glm::vec3 Saved_mouse;
@@ -366,16 +366,18 @@ void changespeed(int n)
 {
 	for(auto &it:blocks)
 	{
-		if(n==1) if(it.s.speed.length()/it.s.angle.length() < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
-		else if(n==-1) if(it.s.speed.length()/it.s.angle.length() > block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
+		if(n==1) if(it.s.speed.length() < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
+		else if(n==-1) if(it.s.speed.length() > block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
 	}
 }
 void RotateCannon_keyboard(bool d)
 {
+	glm::mat3 r=glm::mat3(glm::vec3(cos(acos(-1)/72),sin(acos(-1)/72),0),glm::vec3(sin(acos(-1)/72)*(float)-1,cos(acos(-1)/72),0),glm::vec3(0,0,1));
+	glm::mat3 r2=glm::mat3(glm::vec3(cos(acos(-1)/72),sin(acos(-1)/72)*(float)-1,0),glm::vec3(sin(acos(-1)/72),cos(acos(-1)/72),0),glm::vec3(0,0,1));
 	for(auto &it:all_objects["canon"])
 	{
-		if(d==0) it.angle=normalize(it.angle*glm::vec3(1,1,0)); //rotating by 5 degrees
-		if(d==1) it.angle=normalize(it.angle*glm::vec3(1,-1,0)); //rotating by 5 degrees
+		if(d==0) it.angle=normalize(r*it.angle); //rotating by 5 degrees
+		if(d==1) it.angle=normalize(r2*it.angle); //rotating by 5 degrees
 	}
 }
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -414,10 +416,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 								changespeed(1); //increase speed
 								break;
 						case GLFW_KEY_A:
-								RotateCannon_keyboard(0); //0 for upwards
+								RotateCannon_keyboard(1); //0 for upwards
 								break;
 						case GLFW_KEY_D:
-								RotateCannon_keyboard(1); //1 for downwards
+								RotateCannon_keyboard(0); //1 for downwards
 								break;
 				}
 		}
@@ -450,6 +452,7 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 						case GLFW_KEY_P:
 								pause=pause^1;
 								break;
+
 						default:
 								break;
 				}
@@ -482,10 +485,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 								m=true;
 								break;
 						case GLFW_KEY_A:
-								//RotateCannon();
+								RotateCannon_keyboard(1);
 								break;
 						case GLFW_KEY_D:
-								//RotateCannon();
+								RotateCannon_keyboard(0);
 								break;
 
 				}
@@ -588,6 +591,7 @@ void CreateCircle(string name,COLOR color,glm::vec3 centre,float radius,int part
 		GO.object = circle;
 		GO.center=centre;
 		GO.radius=radius;
+		GO.angle=glm::vec3(1,0,0);
 		GO.speed=glm::vec3(0,0,0);
 		if(name=="canon2")GO.is_rotate=1; else GO.is_rotate=0;
 		canon_vector.push_back(GO);
@@ -814,7 +818,7 @@ void reflect(game_object &a,game_object &b,float speed)
 		a.center=t2*q+b.angle*t+t3;
 		t1=a.angle+t3;
 		q=abs(dot(t1,t2)); t=dot(b.angle,t1);
-		speed=a.speed.length()/a.angle.length();
+		speed=a.speed.length();
 		a.angle=t2*q+b.angle*t-t3;
 		a.angle = normalize(a.angle) ;
 		a.speed=a.angle*speed;
@@ -901,7 +905,7 @@ void draw(GLFWwindow* window)
 		}
 		detectCollisions();
 		if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}
-		RotateCannon(window);
+	//	RotateCannon(window);
 		for(auto it: all_objects)
 		{
 

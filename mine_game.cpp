@@ -776,6 +776,7 @@ void detectCollisions(void)
         else score-=5;
     }
   }
+}
   for(auto it:kill_blocks) blocks.erase(it);
   kill_blocks.clear();
   for(auto it:kill_laser)
@@ -802,6 +803,7 @@ void detectCollisions(void)
     {
       if(checkCollision(it1.s,it2)==true)
       {
+        cout<<"b"<<endl;
         kill_blocks.push_back(it1.f);
         if(it1.s.color.r==it2.color.r &&it1.s.color.g==it2.color.g && it1.s.color.b==it2.color.b) score+=100;
         else if(it1.s.color.r==black.r && it1.s.color.g==black.g && it1.s.color.b==black.b) lose=1;
@@ -811,9 +813,10 @@ void detectCollisions(void)
   }
   for(auto it:kill_blocks) blocks.erase(it);
   kill_blocks.clear();
+  
 }
 double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
-void draw (GLFWwindow* window)
+void draw(GLFWwindow* window)
 {
     //game_timer=(int)(90-(glfwGetTime()-game_start_timer));
     // clear the color and depth in the frame buffer

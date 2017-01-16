@@ -50,7 +50,7 @@ COLOR skyblue = {132/255.0,217/255.0,245/255.0};
 COLOR lightpink = {255/255.0,122/255.0,173/255.0};
 COLOR darkpink = {255/255.0,51/255.0,119/255.0};
 COLOR white = {255/255.0,255/255.0,255/255.0};
-COLOR score = {117/255.0,78/255.0,40/255.0};
+COLOR points = {117/255.0,78/255.0,40/255.0};
 struct game_object
 {
   string name;//name of object//red,black,green
@@ -70,6 +70,7 @@ struct GLMatrices {
 //defining globals
 string scoreLabel,endLabel;
 GLuint programID;
+int score=0;
 double mouse_pos_x, mouse_pos_y;
 double new_mouse_pos_x, new_mouse_pos_y;
 float old_time; // Time in seconds
@@ -80,15 +81,16 @@ int laser_count=0;
 float speed_x_c=(float)(e_right-e_left)/50;
 float speed_y_c=(float)(e_up-e_down)/50;
 float speed_laser=(speed_y_c+speed_x_c)/4;
-bool CursorOnScreen=0;
+bool CursorOnScreen=0,lose=0;
 map<string,vector<game_object> > all_objects;
 vector<game_object> canon_vector ;
-vector<game_object> frame,mirrors;
+vector<game_object> frame,mirrors,buckets;
 vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
 float canon_Radius=30,mirror_width=40,mirror_height=5;
 int limit=2*e_right;
-float block_width=10,block_height=10;
+float block_width=10,block_height=10,bucket_width=35,bucket_height=70;
+bool l=0,r=0,m=0,n=0,pause=0; //keys
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
     // Create the shaders
@@ -344,7 +346,8 @@ void RotateCannon(GLFWwindow* window)
         it.angle = normalize(Mouse - it.rotation_center) ;
     }
 }
-
+void Laser();
+void movebucket(glm::vec3,COLOR,glm::vec3);
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   //cout<<"pressed key"<<" "<<key<<endl;
@@ -356,7 +359,24 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
           case GLFW_KEY_DOWN:
               move_canon(1,canon_Radius);
               break;
-
+          case GLFW_KEY_RIGHT:
+                  r=false;
+                  break;
+          case GLFW_KEY_LEFT:
+                  l=0;
+                  break;
+          case GLFW_KEY_LEFT_CONTROL:
+                        n=0;
+                        break;
+          case GLFW_KEY_RIGHT_CONTROL:
+                        n=0;
+                        break;
+          case GLFW_KEY_LEFT_ALT:
+                        m=0;
+                        break;
+          case GLFW_KEY_RIGHT_ALT:
+                        m=0;
+                        break;
       }
   }
   else if (action == GLFW_PRESS) {
@@ -364,6 +384,30 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
           case GLFW_KEY_ESCAPE:
               quit(window);
               break;
+          case GLFW_KEY_RIGHT:
+                r=true;
+                break;
+          case GLFW_KEY_LEFT:
+                l=true;
+                break;
+          case GLFW_KEY_SPACE:
+                Laser();
+                break;
+          case GLFW_KEY_LEFT_CONTROL:
+                n=true;
+                break;
+          case GLFW_KEY_RIGHT_CONTROL:
+                n=true;
+                break;
+          case GLFW_KEY_LEFT_ALT:
+                m=true;
+                break;
+          case GLFW_KEY_RIGHT_ALT:
+                m=true;
+                break;
+          case GLFW_KEY_P:
+                pause=pause^1;
+                break;
           default:
               break;
       }
@@ -377,9 +421,31 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
         case GLFW_KEY_DOWN:
             move_canon(1,canon_Radius);
             break;
+        case GLFW_KEY_RIGHT:
+            r=true;
+            break;
+        case GLFW_KEY_LEFT:
+            l=true;
+            break;
+        case GLFW_KEY_LEFT_CONTROL:
+                  n=true;
+                  break;
+        case GLFW_KEY_RIGHT_CONTROL:
+                  n=true;
+                  break;
+        case GLFW_KEY_LEFT_ALT:
+                  m=true;
+                  break;
+        case GLFW_KEY_RIGHT_ALT:
+                  m=true;
+                  break;
 
     }
   }
+  if(n==1&&l==1) movebucket(glm::vec3(5,0,0),red ,glm::vec3(-1,0,0));
+  else if(n==1&&r==1) movebucket(glm::vec3(5,0,0),red ,glm::vec3(1,0,0));
+  else if(m==1&&l==1)movebucket(glm::vec3(5,0,0),green ,glm::vec3(-1,0,0));
+  else if(m==1&&r==1)movebucket(glm::vec3(5,0,0),green ,glm::vec3(1,0,0));
 }
 
 /* Executed for character input (like in text boxes) */
@@ -407,7 +473,6 @@ void mouse_click(){
 void mouse_release(GLFWwindow* window, int button){
 
 }
-void Laser();
 /* Executed when a mouse button is pressed/released */
 void mouseButton (GLFWwindow* window, int button, int action, int mods)
 {
@@ -512,17 +577,17 @@ VAO* createRectangle (string name, COLOR colorA, COLOR colorB, COLOR colorC, COL
     VAO *rectangle = create3DObject(GL_TRIANGLES, 6, vertex_buffer_data, color_buffer_data, GL_FILL);
   return rectangle;
 }
-void set_frame(COLOR color,float top,float bottom,float width)
+void set_frame(COLOR color,float top,float bottom,float height)
 {
   game_object FM={};
-  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_up-top/2,0),width,2*e_right,"frame");
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_up-top-height/2,0),height,2*e_right,"frame");
   FM.name="frame1";
   FM.is_rotate=0;
   FM.angle=normalize(glm::vec3(1,0,0));
-  FM.center=glm::vec3(0,e_up-bottom/2,0);
+  FM.center=glm::vec3(0,e_up-top-height/2,0);
   frame.push_back(FM);
-  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_down+bottom/2,0),width,2*e_right,"frame");
-  FM.center=glm::vec3(0,e_down+top/2,0);
+  FM.object=createRectangle("frame",color,color,color,color,glm::vec3(0,e_down+bottom+height/2,0),height,2*e_right,"frame");
+  FM.center=glm::vec3(0,e_down+bottom+height/2,0);
   frame.push_back(FM);
   all_objects["frame"]=frame;
 }
@@ -621,6 +686,38 @@ void moveBlocks()
   for(auto it:kill_blocks) blocks.erase(it);
   kill_blocks.clear();
 }
+void createbuckets()
+{
+  game_object t;
+  t.height=bucket_height;
+  t.width=bucket_width;
+  t.center=glm::vec3(game_e_left+bucket_width/2,e_up-bucket_height/2,0);
+  t.color=red;
+  t.rotation_center=t.center;
+  t.angle=glm::vec3(1,0,0);
+  t.object=createRectangle("bucket",red,red,red,red,t.center,t.height,t.width,"b");
+  t.is_rotate=0;
+  buckets.push_back(t);
+  t.center=glm::vec3(e_right-bucket_width,e_up-bucket_height/2,0);
+  t.color=green;
+  t.rotation_center=t.center;
+  t.object=createRectangle("bucket",lightgreen,lightgreen,lightgreen,lightgreen,t.center,t.height,t.width,"b");
+  buckets.push_back(t);
+  all_objects["buckets"]=buckets;
+}
+void movebucket(glm::vec3 location,COLOR color,glm::vec3 angle)
+{
+  //at buckets[0] red bucket and at bucket[1] green bucket
+  for(auto &it:all_objects["buckets"])
+  {
+    if(it.color.r==color.r &&it.color.g==color.g &&it.color.b==color.b)
+    {
+      glm::vec3 temp=it.center+location*angle;
+      if((temp[0]+bucket_width/2*angle[0])<e_right && (temp[0]+bucket_width/2*angle[0])>e_left)
+      it.center=temp,it.rotation_center=temp,it.angle=angle;
+    }
+  }
+}
 bool checkCollision(game_object x,game_object y)
 {
   glm::vec3 p=cross(x.angle,glm::vec3(0,0,1));
@@ -672,7 +769,11 @@ void detectCollisions(void)
     for(auto it2:blocks)
     {
       bool c=checkCollision(it2.s,it1.s);
-      if(c==true) cout<<"c is true"<<endl,kill_blocks.push_back(it2.f),kill_laser.push_back(it1.f);
+      if(c==true)
+      {
+        kill_blocks.push_back(it2.f),kill_laser.push_back(it1.f);
+        if(it2.s.color.r==black.r && it2.s.color.b==black.b && it2.s.color.g==black.g) score+=100;
+        else score-=5;
     }
   }
   for(auto it:kill_blocks) blocks.erase(it);
@@ -697,13 +798,27 @@ void detectCollisions(void)
     {
       if(checkCollision(it1.s,it2)==true) reflect(it1.s,it2,speed_y_c/20);
     }
+    for(auto &it2:all_objects["buckets"])
+    {
+      if(checkCollision(it1.s,it2)==true)
+      {
+        kill_blocks.push_back(it1.f);
+        if(it1.s.color.r==it2.color.r &&it1.s.color.g==it2.color.g && it1.s.color.b==it2.color.b) score+=100;
+        else if(it1.s.color.r==black.r && it1.s.color.g==black.g && it1.s.color.b==black.b) lose=1;
+        else score-=5;
+      }
+    }
   }
+  for(auto it:kill_blocks) blocks.erase(it);
+  kill_blocks.clear();
 }
 double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
 void draw (GLFWwindow* window)
 {
     //game_timer=(int)(90-(glfwGetTime()-game_start_timer));
     // clear the color and depth in the frame buffer
+    //to pause
+    if(pause==1) return;
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram (programID);
     Matrices.view = glm::lookAt(glm::vec3(0,0,1), glm::vec3(0,0,0), glm::vec3(0,1,0)); // Fixed camera for 2D (ortho) in XY plane
@@ -827,8 +942,9 @@ void initGL (GLFWwindow* window, int width, int height)
   //createRectangle("cannonpower1",cratebrown2,cratebrown2,cratebrown2,cratebrown2,glm::vec3(-3,0,0),1,2,"background");
   //createRectangle("cannonpower1",darkbrown,darkbrown,darkbrown,darkbrown,glm::vec3(-1.6,0,0),0.2,0.8,"background");
   createcanon("canon",black,brown3,glm::vec3(e_left+2*canon_Radius,0,0),canon_Radius,10);
-  set_frame(black,160,80,5);
+  set_frame(black,80,40,5);
   create_mirror(glm::vec3(0,0,0),glm::vec3(80,80,0));
+  createbuckets();
   // Create and compile our GLSL program from the shaders
   programID = LoadShaders( "Sample_GL.vert", "Sample_GL.frag" );
   // Get a handle for our "MVP" uniform
@@ -879,7 +995,7 @@ int main (int argc, char** argv)
         // OpenGL Draw commands
         draw(window);
         old_time=current_time;
-
+        cout<<"score"<<score<<endl;
         // Swap Frame Buffer in double buffering
         glfwSwapBuffers(window);
 

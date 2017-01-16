@@ -366,8 +366,8 @@ void changespeed(int n)
 {
 	for(auto &it:blocks)
 	{
-		if(n==1) if(it.s.speed.length() < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
-		else if(n==-1) if(it.s.speed.length() > block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
+		if(n==1) if(glm::length(it.s.speed) < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
+		else if(n==-1) if(glm::length(it.s.speed)> block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
 	}
 }
 void RotateCannon_keyboard(bool d)
@@ -805,7 +805,7 @@ void reflect(game_object &a,game_object &b,float speed)
 		glm::vec3 t1,t2,t3;
 		t1=cross(a.center -b.center,a.angle);
 		t2=cross(b.angle,a.angle);
-		float t=t1.length()/t2.length();
+		float t=glm::length(t1)/glm::length(t2);
 		float q=dot(t1,t2);
 		if(q<0) t=t*(float)-1;
 		t3=b.center+b.angle*(float)t;
@@ -818,7 +818,7 @@ void reflect(game_object &a,game_object &b,float speed)
 		a.center=t2*q+b.angle*t+t3;
 		t1=a.angle+t3;
 		q=abs(dot(t1,t2)); t=dot(b.angle,t1);
-		speed=a.speed.length();
+		speed=glm::length(a.speed);
 		a.angle=t2*q+b.angle*t-t3;
 		a.angle = normalize(a.angle) ;
 		a.speed=a.angle*speed;

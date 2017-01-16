@@ -89,7 +89,7 @@ vector<int>kill_laser;
 map<int,game_object>lasers,blocks;
 float canon_Radius=30,mirror_width=40,mirror_height=5;
 int limit=2*e_right;
-float block_width=10,block_height=10,bucket_width=35,bucket_height=70;
+float block_width=10,block_height=10,bucket_width=35,bucket_height=70,block_speed_least=speed_y_c/40,block_speed_max=speed_y_c/10;
 bool l=0,r=0,m=0,n=0,pause=0; //keys
 bool Right_mouse_on;
 glm::vec3 Saved_mouse;
@@ -270,12 +270,12 @@ glm::vec3 GetMouseCoordinates(GLFWwindow* window)
 void check_pan(void);
 void pan(GLFWwindow * window)
 {
-	glm::vec3 m=GetMouseCoordinates(window) - Saved_mouse;
-	if(m[0]>15) x_change+=15;
-	else if(m[0]<-15) x_change-=15;
-	if(m[1]>15) y_change+=15;
-	else if(m[1]<-15) y_change-=15;
-	check_pan();
+		glm::vec3 m=GetMouseCoordinates(window) - Saved_mouse;
+		if(m[0]>15) x_change+=15;
+		else if(m[0]<-15) x_change-=15;
+		if(m[1]>15) y_change+=15;
+		else if(m[1]<-15) y_change-=15;
+		check_pan();
 }
 // find angle from A to B : assuming both are normalized vectors
 float FindAngle(glm::vec3 A,glm::vec3 B)
@@ -327,7 +327,7 @@ void check_pan(){
 				y_change=-300+300.0f/zoom_camera;
 		else if(y_change+300.0f/zoom_camera>300)
 				y_change=300-300.0f/zoom_camera;
-				Matrices.projection = glm::ortho((float)(-400.0f/zoom_camera+x_change), (float)(400.0f/zoom_camera+x_change), (float)(300.0f/zoom_camera+y_change), (float)(-300.0f/zoom_camera+y_change), 0.1f, 500.0f);
+		Matrices.projection = glm::ortho((float)(-400.0f/zoom_camera+x_change), (float)(400.0f/zoom_camera+x_change), (float)(300.0f/zoom_camera+y_change), (float)(-300.0f/zoom_camera+y_change), 0.1f, 500.0f);
 }
 
 void initKeyboard(){
@@ -362,6 +362,7 @@ void RotateCannon(GLFWwindow* window)
 }
 void Laser();
 void movebucket(glm::vec3,COLOR,glm::vec3);
+void changespeed(int n){}
 void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 		//cout<<"pressed key"<<" "<<key<<endl;
@@ -392,10 +393,10 @@ void keyboard (GLFWwindow* window, int key, int scancode, int action, int mods)
 								m=0;
 								break;
 						case GLFW_KEY_N:
-								//changespeed(-1);
+								changespeed(-1);
 								break;
 						case GLFW_KEY_M:
-								//changespeed(1);
+								changespeed(1);
 								break;
 						case GLFW_KEY_A:
 								//RotateCannon(win);
@@ -518,8 +519,8 @@ void mouseButton (GLFWwindow* window, int button, int action, int mods)
 						if (action == GLFW_RELEASE) { right_mouse_clicked=false; }
 						if (action == GLFW_PRESS)
 						{
-							right_mouse_clicked=true;
-							Saved_mouse=GetMouseCoordinates(window);
+								right_mouse_clicked=true;
+								Saved_mouse=GetMouseCoordinates(window);
 						}
 						break;
 				default:
@@ -644,6 +645,10 @@ void create_mirror(glm::vec3 center1,glm::vec3 center2)
 		m.rotation_center = m.center=center2;
 		m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
 		m.height=mirror_width;m.width=mirror_height;
+		mirrors.push_back(m);
+		m.center=m.rotation_center=center1-center2;
+		m.angle= normalize(glm::vec3(1,1,0)) ;
+		m.object=createRectangle("mirror",white,white,white,white,center1,m.height,m.width,"m");
 		mirrors.push_back(m);
 		all_objects["mirrors"]=mirrors;
 }
@@ -876,8 +881,8 @@ void draw(GLFWwindow* window)
 		}
 		if(current_time- pan_timer >=0.15)
 		{
-			if(right_mouse_clicked) pan(window);
-			pan_timer=current_time;
+				if(right_mouse_clicked) pan(window);
+				pan_timer=current_time;
 		}
 		detectCollisions();
 		if(current_time-lastbtime>=0.5) {lastbtime=current_time;createBlocks();}

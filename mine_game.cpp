@@ -96,6 +96,8 @@ glm::vec3 Saved_mouse;
 double pan_timer=glfwGetTime();
 bool enable_shhot=0;
 bool canon_selected,redb_selected,greenb_selected,leftmouse,rightmouse;
+int lives=3,level=1;float sb=1;bool lost=0;
+glm::vec3 g=glm::vec3(0,speed_y_c/300,0);
 GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path) {
 
 		// Create the shaders
@@ -368,8 +370,8 @@ void changespeed(int n)
 {
 	for(auto &it:blocks)
 	{
-		if(n==1) if(glm::length(it.s.speed) < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max;
-		else if(n==-1) if(glm::length(it.s.speed)> block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least;
+		if(n==1) if(glm::length(it.s.speed) < block_speed_max) it.s.speed=it.s.angle * (float) block_speed_max,sb=2;
+		else if(n==-1) if(glm::length(it.s.speed)> block_speed_least) it.s.speed=it.s.angle * (float) block_speed_least,sb=0.5;
 	}
 }
 void RotateCannon_keyboard(bool d)
@@ -749,7 +751,7 @@ void createBlocks()
 		b.height=block_height;
 		b.width=block_width;
 		b.speed=glm::vec3(0,speed_y_c/20,0);
-		b.gravity=glm::vec3(0,speed_y_c/300,0);
+		b.gravity=g;
 		int c=randomno(3);
 		if(c==0) b.color=red;
 		else if(c==1) b.color=green;
@@ -916,10 +918,10 @@ void detectCollisions(void)
 				{
 						if(checkCollision(it1.s,it2)==true&&checkCollision(all_objects["buckets"][0],all_objects["buckets"][1])==false)
 						{
-								cout<<"b"<<endl;
+							//	cout<<"b"<<endl;
 								kill_blocks.push_back(it1.f);
 								if(it1.s.color.r==it2.color.r &&it1.s.color.g==it2.color.g && it1.s.color.b==it2.color.b) score+=100;
-								else if(it1.s.color.r==black.r && it1.s.color.g==black.g && it1.s.color.b==black.b) lose=1;
+								else if(it1.s.color.r==black.r && it1.s.color.g==black.g && it1.s.color.b==black.b){ lives-=1;if(lives<0) lost=1,lives=0;}
 								else score-=5;
 						}
 				}
@@ -928,6 +930,28 @@ void detectCollisions(void)
 		kill_blocks.clear();
 
 }
+bool level_won()
+{
+	if(score>=500 && level==1)
+	{
+		level+=1;
+		score=0;
+		lives=3;
+		sb=1;
+		return true;
+	}
+	return false;
+}
+bool game_lost()
+{
+	if(score<500 && lost==1) return true;
+	return false;
+}
+bool game_won()
+{
+	if(score>1000 && level>1) return true;
+	return false;
+}
 double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
 void draw(GLFWwindow* window)
 {
@@ -935,6 +959,18 @@ void draw(GLFWwindow* window)
 		// clear the color and depth in the frame buffer
 		//to pause
 		if(pause==1) return;
+		if(level_won())
+		{
+			cout<<"You passed this level"<<endl;
+			lasers.erase(lasers.begin(),lasers.end());
+			blocks.erase(blocks.begin(),blocks.end());
+			g=glm::vec3(0,speed_y_c/100,0);
+		}
+		cout<<"level"<<" "<<level<<" "<<endl;
+		cout<<"score"<<" "<<score<<" "<<endl;
+		cout<<"lives"<<" "<<lives<<endl;
+		cout<<"speed"<<" "<<sb<<"X"<<endl;
+
 		glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glUseProgram (programID);
 		Matrices.view = glm::lookAt(glm::vec3(0,0,1), glm::vec3(0,0,0), glm::vec3(0,1,0)); // Fixed camera for 2D (ortho) in XY plane
@@ -1124,8 +1160,20 @@ int main (int argc, char** argv)
 				current_time = glfwGetTime(); // Time in seconds
 				// OpenGL Draw commands
 				draw(window);
+				if(game_lost()==1)
+				{
+					cout<<"YOU LOST"<<endl;
+					glfwTerminate();
+					exit(EXIT_SUCCESS);
+				}
+				if(game_won())
+				{
+					cout<<"CONGRATS!! YOU WON"<<endl;
+					glfwTerminate();
+					exit(EXIT_SUCCESS);
+				}
 				old_time=current_time;
-				//cout<<"score"<<score<<endl;
+
 				// Swap Frame Buffer in double buffering
 				glfwSwapBuffers(window);
 

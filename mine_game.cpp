@@ -5,14 +5,35 @@
 #include <map>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <string.h>
 #define GLM_FORCE_RADIANS
 #define FN(i, n) for(int i=0;i<(int)n;++i)
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <pthread.h>
+#include <ao/ao.h>
+#include <fstream>
+
 using namespace std;
 #define f first
 #define s second
+static const int BUF_SIZE = 4096;
+
+struct WavHeader {
+    char id[4]; //should contain RIFF
+    int32_t totalLength;
+    char wavefmt[8];
+    int32_t format; // 16 for PCM
+    int16_t pcm; // 1 for PCM
+    int16_t channels;
+    int32_t frequency;
+    int32_t bytesPerSecond;
+    int16_t bytesByCapture;
+    int16_t bitsPerSample;
+    char data[4]; // "data"
+    int32_t bytesInData;
+};
 struct VAO {
 		GLuint VertexArrayID;
 		GLuint VertexBuffer;
@@ -47,7 +68,7 @@ COLOR cratebrown2 = {102/255.0,68/255.0,0/255.0};
 COLOR skyblue2 = {113/255.0,185/255.0,209/255.0};
 COLOR skyblue1 = {123/255.0,201/255.0,227/255.0};
 COLOR skyblue = {132/255.0,217/255.0,245/255.0};
-COLOR lightpink = {255/255.0,122/255.0,173/255.0};
+COLOR lightpink = {176/255.0,196/255.0,222/255.0};
 COLOR darkpink = {255/255.0,51/255.0,119/255.0};
 COLOR white = {255/255.0,255/255.0,255/255.0};
 COLOR points = {117/255.0,78/255.0,40/255.0};
@@ -700,6 +721,14 @@ void create_mirror(glm::vec3 center1,glm::vec3 center2)
 		mirrors.push_back(m);
 		all_objects["mirrors"]=mirrors;
 }
+void rotate_mirror()
+{
+  for(auto &it:all_objects["mirrors"])
+  {
+    glm::mat3 r=glm::mat3(glm::vec3(cos(acos(-1)/72),sin(acos(-1)/72),0),glm::vec3(sin(acos(-1)/72)*(float)-1,cos(acos(-1)/72),0),glm::vec3(0,0,1));
+    it.angle=normalize(r*it.angle);
+  }
+}
 void Laser()
 {
 		//cout<<"laser"<<endl;
@@ -934,7 +963,7 @@ bool level_won()
 {
 	if(score>=500 && level==1)
 	{
-		level+=1;
+		level=2;
 		score=0;
 		lives=3;
 		sb=1;
@@ -944,12 +973,12 @@ bool level_won()
 }
 bool game_lost()
 {
-	if(score<500 && lost==1) return true;
+	if(lost==1) return true;
 	return false;
 }
 bool game_won()
 {
-	if(score>1000 && level>1) return true;
+	if(score>1000 && level>=2) return true;
 	return false;
 }
 double last_update_time = glfwGetTime(), current_time,lastbtime=glfwGetTime();
@@ -985,6 +1014,7 @@ void draw(GLFWwindow* window)
 				last_update_time = current_time ;
 				move_Laser() ;
 				moveBlocks();
+        if(level==2) rotate_mirror();
 		}
 		if(current_time- pan_timer >=0.15)
 		{
@@ -1120,7 +1150,7 @@ void initGL (GLFWwindow* window, int width, int height)
 		reshapeWindow (window, width, height);
 
 		// Background color of the scene
-		glClearColor (0.3f, 0.3f, 0.3f, 0.0f); // R, G, B, A
+		glClearColor (lightpink.r,lightpink.g,lightpink.b, 0.0f); // R, G, B, A
 		glClearDepth (1.0f);
 
 		glEnable (GL_DEPTH_TEST);
@@ -1131,7 +1161,74 @@ void initGL (GLFWwindow* window, int width, int height)
 		cout << "VERSION: " << glGetString(GL_VERSION) << endl;
 		cout << "GLSL: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
 }
+void* Writer(void * i)
+{
+	ao_device* device;
+    ao_sample_format format;
+    int defaultDriver;
+    WavHeader header;
 
+    std::ifstream file;
+    file.open("explosion.wav", std::ios::binary | std::ios::in);
+
+    file.read(header.id, sizeof(header.id));
+    //assert(!std::memcmp(header.id, "RIFF", 4)); //is it a WAV file?
+    file.read((char*)&header.totalLength, sizeof(header.totalLength));
+    file.read(header.wavefmt, sizeof(header.wavefmt)); //is it the right format?
+    //assert(!std::memcmp(header.wavefmt, "WAVEfmt ", 8));
+    file.read((char*)&header.format, sizeof(header.format));
+    file.read((char*)&header.pcm, sizeof(header.pcm));
+    file.read((char*)&header.channels, sizeof(header.channels));
+    file.read((char*)&header.frequency, sizeof(header.frequency));
+    file.read((char*)&header.bytesPerSecond, sizeof(header.bytesPerSecond));
+    file.read((char*)&header.bytesByCapture, sizeof(header.bytesByCapture));
+    file.read((char*)&header.bitsPerSample, sizeof(header.bitsPerSample));
+    file.read(header.data, sizeof(header.data));
+    file.read((char*)&header.bytesInData, sizeof(header.bytesInData));
+
+    ao_initialize();
+
+    defaultDriver = ao_default_driver_id();
+
+    memset(&format, 0, sizeof(format));
+    format.bits = header.format;
+    format.channels = header.channels;
+    format.rate = header.frequency;
+    format.byte_format = AO_FMT_LITTLE;
+
+    device = ao_open_live(defaultDriver, &format, NULL);
+    if (device == NULL) {
+        std::cout << "Unable to open driver" << std::endl;
+        //return;
+    }
+
+
+    char* buffer = (char*)malloc(BUF_SIZE * sizeof(char));
+
+    // determine how many BUF_SIZE chunks are in file
+    int fSize = header.bytesInData;
+    int bCount = fSize / BUF_SIZE;
+
+    for (int i = 0; i < bCount; ++i) {
+        file.read(buffer, BUF_SIZE);
+				if(lost==1) {ao_close(device);
+		    ao_shutdown();pthread_exit((void *)NULL);}
+        ao_play(device, buffer, BUF_SIZE);
+    }
+
+    int leftoverBytes = fSize % BUF_SIZE;
+  //  std::cout << leftoverBytes;
+    file.read(buffer, leftoverBytes);
+    memset(buffer + leftoverBytes, 0, BUF_SIZE - leftoverBytes);
+		if(lost==1) {ao_close(device);
+    ao_shutdown();pthread_exit((void *)NULL);}
+    ao_play(device, buffer, BUF_SIZE);
+
+    ao_close(device);
+    ao_shutdown();
+
+}
+pthread_t Writer_thr[3];
 int main (int argc, char** argv)
 {
 		int width = 800;
@@ -1144,6 +1241,7 @@ int main (int argc, char** argv)
 		endLabel="";
 		endLabel_x=-160;
 		GLFWwindow* window = initGLFW(width, height);
+		pthread_create(&Writer_thr[1],NULL,Writer,(void*) NULL);
 		glfwSetCursorEnterCallback(window, cursor_enter_callback);
 		initGL (window, width, height);
 
@@ -1163,12 +1261,15 @@ int main (int argc, char** argv)
 				if(game_lost()==1)
 				{
 					cout<<"YOU LOST"<<endl;
+					pthread_join(Writer_thr[1],NULL);
 					glfwTerminate();
 					exit(EXIT_SUCCESS);
+
 				}
 				if(game_won())
 				{
 					cout<<"CONGRATS!! YOU WON"<<endl;
+					pthread_join(Writer_thr[1],NULL);
 					glfwTerminate();
 					exit(EXIT_SUCCESS);
 				}
@@ -1187,7 +1288,7 @@ int main (int argc, char** argv)
 				// last_update_time = current_time;
 				// }
 		}
-
+		pthread_join(Writer_thr[1],NULL);
 		glfwTerminate();
 		exit(EXIT_SUCCESS);
 }
